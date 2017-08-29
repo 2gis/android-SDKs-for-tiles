@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width">
+
+    <title></title>
+    <script src="https://maps.api.2gis.ru/2.0/loader.js?pkg=basic" data-id="dgLoader"></script>
+
+    <style type="text/css">
+        html {
+        margin: 0;
+        padding: 0;
+        height: 100%
+        }
+
+        body {
+        margin: 0;
+        padding: 0;
+        height: 100%
+        }
+
+        #map {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        }
+
+        .marker._pin:before {
+        position: absolute;
+        margin: -8px 0 0 -8px;
+        width: 16px;
+        height: 16px;
+        content: '';
+        background-size: cover;
+        }
+
+        .marker._hidden {
+        display: none;
+        visibility: hidden;
+        }
+
+        .marker._outOfViewPort {
+        display: none;
+        visibility: hidden;
+        }
+
+        .marker._unselectedFilial:before {
+        background: url('file:///android_asset/images/point.svg');
+        }
+
+        .marker._unselectedFilialMultiple:before {
+        background: url('file:///android_asset/images/point_reviews_multiple.svg');
+        }
+
+        .marker._pointActive:before {
+        background: url('file:///android_asset/images/point_active.svg');
+        }
+
+        .marker._pointActiveMultiple:before {
+        background: url('file:///android_asset/images/point_active_multiple.svg');
+        }
+
+        .marker._userLocationMarker:before {
+        position: absolute;
+        margin: -12px 0 0 -12px;
+        width: 24px;
+        height: 24px;
+        background: url('file:///android_asset/images/point_landmark.svg');
+        content: '';
+        }
+    </style>
+
+</head>
+<body>
+<div id="map"></div>
+<script>
+var map;
+var markerGroup;
+var userLocationMarker;
+var userLocationMarkerZIndexOffset = 9999999;
+var isInit = false;
+var userDivIcon;
+
+DG.then(function() {
+    return DG.plugin('generalize.js');
+}).then(function(){
+    return DG.plugin('quadtree.js');
+});
+
+function initMap(projectLat, projectLon, currentZoom){
+			DG.then(function() {
+                map = DG.map('map', {
+                    center : [projectLat, projectLon],
+                    zoom : currentZoom,
+                    minZoom : 7,
+                    zoomControl : false,
+                    fullscreenControl : false
+                });
+                DG.control.zoom({
+                    position : 'topright'
+                }).addTo(map);
+                markerGroup = L.markerGeneralizeGroup();
+                markerGroup.addTo(map);
+                isInit = true;
+            });
+}
+
+function hideCopyright() {
+  var cols = document.querySelector('.dg-attribution__copyright');
+  var links = cols.querySelectorAll('a');
+
+  for (var i = 0 ; i < links.length; i++) {
+    links[i].addEventListener('click', urlParcer);
+  }
+}
+
+function urlParcer(event){
+    event.preventDefault();
+    event.stopPropagation();
+    android_callback.clickCopyright(event.currentTarget.getAttribute('href'));
+}
+
+function setMarkersAndAvatar(markers, lat, lon, icon) {
+    if(!isInit) return false;
+    this.removeMarkers();
+    DG.then(function() {
+        userDivIcon = L.divIcon({
+            iconSize: L.point(0, 0),
+            className: 'marker',
+            html: '<img src="'+icon+'" style="width:32px;height:32px;border-radius:15px;border-top-color:#fff;border-width:2px;position: absolute;margin: -17px 0 0 -17px;">'
+        });
+
+        if (icon != null) {
+            userLocationMarker = L.marker([lat, lon], {
+                icon: userDivIcon,
+                zIndexOffset:userLocationMarkerZIndexOffset
+            });
+            userLocationMarker.addTo(map);
+            L.DomUtil.addClass(userLocationMarker._icon, '_userLocationMarker');
+        }
+
+        var markerIcon = L.divIcon({
+            iconSize : L.point(0, 0),
+            className : 'marker'
+        });
+        var i,
+            markerArr = [];
+        for ( i = 0; i < markers.length; i++) {
+            var marker = L.marker([markers[i][0], markers[i][1]], {
+                icon : markerIcon,
+                filialIDs : markers[i][2],
+                buildingID : markers[i][3],
+            }).on('click', didTouchMarker);
+            markerArr.push(marker);
+        }
+
+        markerGroup.addLayers(markerArr).once('invalidationFinish', function() {
+            var bounds = markerGroup.getBounds();
+            var latDelta = bounds.getNorthEast().lat - bounds.getSouthWest().lat;
+            var lngDelta = bounds.getNorthEast().lng - bounds.getSouthWest().lng;
+            var newBounds = DG.latLngBounds(DG.latLng(bounds.getSouthWest().lat - 0.1 * latDelta, bounds.getSouthWest().lng - 0.1 * latDelta), DG.latLng(bounds.getNorthEast().lat + 0.1 * latDelta, bounds.getNorthEast().lng + 0.1 * lngDelta));
+            map.fitBounds(newBounds);
+        });
+
+        markerArr.forEach(function(marker) {
+            if (marker.options.filialIDs.length > 1) {
+                L.DomUtil.addClass(marker._icon, '_unselectedFilialMultiple');
+            } else {
+                L.DomUtil.addClass(marker._icon, '_unselectedFilial');
+            }
+        });
+        this.hideCopyright();
+    });
+}
+
+function moveTo(lat,lon,zoom){
+    DG.then(function(){
+    var latlng = DG.latLng(lat, lon);
+    map.setView(latlng,zoom);
+    //map.invalidateSize();
+    });
+}
+
+function removeMarkers() {
+    DG.then(function() {
+        markerGroup.clearLayers();
+        markerGroup._selectedMarker = undefined;
+    });
+}
+function selectMarker(filialID) {
+    DG.then(function () {
+        var markerToSelect;
+        markerGroup._otherMarkers.some(function (marker) {
+           marker.options.filialIDs.some(function (tempFilialID) {
+               if (tempFilialID == filialID) {
+                   markerToSelect = marker;
+                   return true;
+               }
+           });
+           return markerToSelect !== undefined;
+        });
+        if (markerToSelect !== undefined) {
+            if (markerToSelect.options.filialIDs.length > 1) {
+                L.DomUtil.addClass(markerToSelect._icon, '_pointActiveMultiple');
+            } else {
+                L.DomUtil.addClass(markerToSelect._icon, '_pointActive');
+            }
+            markerGroup._selectedMarker = markerToSelect;
+         //  android_callback.touchMarker(""+markerToSelect.options.filialIDs.toString(),markerToSelect.getLatLng().lat,markerToSelect.getLatLng().lng,markerGroup._selectedMarker !== undefined ? 1 : 0);
+           markerGroup._invalidateMarkers();
+        }
+     });
+ }
+
+function didTouchMarker(e) {
+    var isActiveMarker;
+    DG.then(function() {
+        var marker = e.target;
+        if (markerGroup._selectedMarker !== undefined) {
+            if (markerGroup._selectedMarker === marker) {
+                markerGroup._selectedMarker = undefined;
+                deselectMarker(marker);
+            } else {
+                deselectMarker(markerGroup._selectedMarker);
+                selectMarker(marker);
+                markerGroup._selectedMarker = marker;
+            }
+        } else {
+            selectMarker(marker);
+            markerGroup._selectedMarker = marker;
+        }
+
+        function selectMarker(marker) {
+            isActiveMarker = true;
+            if (marker.options.filialIDs.length > 1) {
+                L.DomUtil.addClass(marker._icon, '_pointActiveMultiple');
+            } else {
+                L.DomUtil.addClass(marker._icon, '_pointActive');
+            }
+        }
+
+        function deselectMarker(marker) {
+            isActiveMarker = false;
+            if (marker.options.filialIDs.length > 1) {
+                L.DomUtil.removeClass(marker._icon, '_pointActiveMultiple');
+            } else {
+                L.DomUtil.removeClass(marker._icon, '_pointActive');
+            }
+        }
+        map.panTo(marker.getLatLng());
+        android_callback.touchMarker(""+marker.options.filialIDs.toString(),marker.getLatLng().lat,marker.getLatLng().lng,isActiveMarker);
+        markerGroup._invalidateMarkers();
+    });
+}
+</script>
+</body>
+</html>

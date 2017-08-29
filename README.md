@@ -32,8 +32,11 @@ Point pictures can be replaced.
 Processing of a click on a point occurs in touchMarker function.
 
 ```
-./TileMap/app/src/assets/images/point.svg
-./TileMap/app/src/assets/images/point_active.svg
+Processing of a click on a point occurs in touchMarker function
+@JavascriptInterface
+public void touchMarker(final String filialIds, final String lat, final String lon, final boolean isActive) {
+    Toast.makeText(context, "Filial id is "+filialIds,Toast.LENGTH_LONG).show();
+}
 
 ```
 

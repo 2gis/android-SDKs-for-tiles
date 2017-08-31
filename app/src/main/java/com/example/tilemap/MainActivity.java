@@ -39,9 +39,9 @@ public class MainActivity extends Activity {
                 }
 
                 List<Marker> markers = new ArrayList<>();
-                markers.add(new Marker("70000001006275165", 55.288396, 25.263831));
-                markers.add(new Marker("70000001006186603", 55.285606, 25.260066));
-                markers.add(new Marker("70000001007008967", 55.318308, 25.24457));
+                markers.add(new Marker("70000001006275165", 25.263831, 55.288396));
+                markers.add(new Marker("70000001006186603", 25.260066, 55.285606));
+                markers.add(new Marker("70000001007008967", 25.24457, 55.318308));
 
                 showMarkers(markers);
             }
@@ -91,7 +91,7 @@ public class MainActivity extends Activity {
         private double lat;
         private String filialIDs;
 
-        public Marker(String filial_id, double lon, double lat) {
+        public Marker(String filial_id, double lat, double lon) {
             this.filial_id = filial_id;
             this.lon = lon;
             this.lat = lat;
